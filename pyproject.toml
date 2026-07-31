@@ -4,23 +4,29 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "un-kicker-control"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
   { name="MechanoMed", email="author@example.com" },
 ]
 description = "A control program for the un-kicker device."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies= [
+dependencies = [
   "PyQt5>=5.15.11",
   "pyserial>=3.5",
 ]
 
+[project.scripts]
+un-kicker-control = "un_kicker_control.main:main"
+
 [project.urls]
 "Homepage" = "https://github.com/pypa/sampleproject"
 "Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

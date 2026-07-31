@@ -1,4 +1,7 @@
+import logging
 import struct
+
+logger = logging.getLogger(__name__)
 
 
 class NanoKicker:
@@ -53,7 +56,7 @@ class NanoKicker:
     def set_amplitude(self, amplitude: float):
         """Sets the output amplitude."""
         self.amplitude = amplitude
-        print("Setting amplitude to:", amplitude)
+        logger.debug("Setting amplitude to: %s", amplitude)
         self._send_command(3, self._float_to_int(amplitude))
 
     def set_wiper(self, wiper: int):
@@ -153,7 +156,7 @@ class NanoKicker:
 
     def read_all_parameters(self):
         """Reads all parameters from the device and updates the object's state."""
-        print(f"--- Reading all parameters for device {self.device_id} ---")
+        logger.debug("--- Reading all parameters for device %d ---", self.device_id)
         self.get_mode()
         self.get_frequency()
         self.get_amplitude()
@@ -164,7 +167,7 @@ class NanoKicker:
         self.get_r_g_trim()
         self.get_r_f_trim()
         self.get_wiper()
-        print("--- Finished reading ---")
+        logger.debug("--- Finished reading ---")
 
     def __repr__(self):
         return (

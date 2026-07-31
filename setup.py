@@ -5,12 +5,11 @@ setup(
     version="0.1.0",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    py_modules=["motherboard", "nanokicker", "main"],
     install_requires=[
         "pyserial",
         "PyQt5",
     ],
     entry_points={
-        "console_scripts": ["un-kicker-control=main:main"],
+        "console_scripts": ["un-kicker-control=un_kicker_control.main:main"],
     },
 )
