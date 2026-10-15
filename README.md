@@ -44,21 +44,13 @@ Install Python from [python.org](https://www.python.org/downloads/) (tick "Add p
 git clone <repository-url>
 cd un-kicker-control
 
-py -m venv .venv
-.venv\Scripts\Activate.ps1
+python -m venv .unk_venv
+.unk_venv\Scripts\Activate.ps1
 
 pip install .
 ```
 
 If PowerShell refuses to run the activation script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or use `.venv\Scripts\activate.bat` from Command Prompt. No extra USB driver is needed; the motherboard shows up as a `COM` port.
-
-### Development install
-
-To edit the code and have changes picked up without reinstalling, use an editable install instead of `pip install .`:
-
-```bash
-pip install -e .
-```
 
 ## Launching the GUI
 
@@ -74,8 +66,6 @@ python -m un_kicker_control
 
 To open the GUI with a double-click instead of a terminal, create a shortcut that launches it with the virtual environment's `pythonw.exe` (the windowless Python, so no console window appears).
 
-**Manually:**
-
 1. Right-click the desktop, choose **New → Shortcut**.
 2. For the location, enter the full path to `pythonw.exe` in your virtual environment, followed by `-m un_kicker_control`, e.g.
 
@@ -84,18 +74,6 @@ To open the GUI with a double-click instead of a terminal, create a shortcut tha
    ```
 
 3. Name it "NanoKicker Control" and finish.
-
-**Or from PowerShell**, run this from the `un-kicker-control` folder (with the virtual environment already created and the package installed). It creates the shortcut on your desktop:
-
-```powershell
-$python = (Resolve-Path .venv\Scripts\pythonw.exe).Path
-$shell = New-Object -ComObject WScript.Shell
-$lnk = $shell.CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\NanoKicker Control.lnk")
-$lnk.TargetPath = $python
-$lnk.Arguments = "-m un_kicker_control"
-$lnk.WorkingDirectory = (Get-Location).Path
-$lnk.Save()
-```
 
 To make it available from the Start menu, copy the shortcut into `%APPDATA%\Microsoft\Windows\Start Menu\Programs`. If you move or recreate the virtual environment, recreate the shortcut too.
 
