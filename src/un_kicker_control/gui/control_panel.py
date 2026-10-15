@@ -65,9 +65,24 @@ class ControlPanel(QWidget):
         form.addRow("Amplitude:", self.amp_input)
 
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["Off", "Sine", "Square", "Triangle"])
+        self.mode_combo.addItems(["Off", "Sine", "Square", "Triangle", "Pulsed"])
         self.mode_combo.setEnabled(False)
         form.addRow("Mode:", self.mode_combo)
+
+        # Only meaningful in "Pulsed" mode: how often the DDS toggles on/off,
+        # and how long it stays "on" (sine) within each cycle. Expressed in
+        # seconds here and converted to the device's Hz/duty-cycle% wire
+        # format on send (and back again when displaying a device's current
+        # values) -- see _apply_pulse_timing()/get_pulse_timing_values().
+        self.pulse_period_input = QLineEdit()
+        self.pulse_period_input.setValidator(QDoubleValidator(0.001, 100.0, 3))
+        self.pulse_period_input.setEnabled(False)
+        form.addRow("Pulse Period (s):", self.pulse_period_input)
+
+        self.pulse_length_input = QLineEdit()
+        self.pulse_length_input.setValidator(QDoubleValidator(0.0, 100.0, 3))
+        self.pulse_length_input.setEnabled(False)
+        form.addRow("Pulse Length (s):", self.pulse_length_input)
 
         self.set_button = QPushButton("Set")
         self.set_button.setEnabled(False)
@@ -84,6 +99,10 @@ class ControlPanel(QWidget):
         self.freq_input.editingFinished.connect(self._apply_frequency)
         self.amp_input.editingFinished.connect(self._apply_amplitude)
         self.mode_combo.activated.connect(self._apply_mode)
+        # Period and length are converted together (duty cycle depends on
+        # both), so either field finishing editing re-applies both.
+        self.pulse_period_input.editingFinished.connect(self._apply_pulse_timing)
+        self.pulse_length_input.editingFinished.connect(self._apply_pulse_timing)
 
         # --- Advanced parameters (single device only) ---
         self.advanced_checkbox = QCheckBox("Advanced Settings")
@@ -166,6 +185,8 @@ class ControlPanel(QWidget):
         self.freq_input.setEnabled(has_target)
         self.amp_input.setEnabled(has_target)
         self.mode_combo.setEnabled(has_target)
+        self.pulse_period_input.setEnabled(has_target)
+        self.pulse_length_input.setEnabled(has_target)
         self.set_button.setEnabled(has_target)
 
         single = len(device_ids) == 1
@@ -173,11 +194,16 @@ class ControlPanel(QWidget):
         if not single and self.advanced_checkbox.isChecked():
             self.advanced_checkbox.setChecked(False)
 
-    def load_basic_from(self, mode, frequency, amplitude):
+    def load_basic_from(
+        self, mode, frequency, amplitude, pulse_frequency=None, pulse_duty_cycle=None
+    ):
         """Populate the basic fields from a device's last known values.
 
-        Never overwrites a field the user currently has focused, so a
-        background poll/read can't clobber input mid-edit.
+        pulse_frequency/pulse_duty_cycle are only available from a full
+        parameter read (not the lightweight 1Hz poll), so they default to
+        None and are left untouched when not supplied. Never overwrites a
+        field the user currently has focused, so a background poll/read
+        can't clobber input mid-edit.
         """
         if frequency is not None and not self.freq_input.hasFocus():
             self.freq_input.setText(str(frequency))
@@ -185,6 +211,12 @@ class ControlPanel(QWidget):
             self.amp_input.setText(f"{amplitude:.2f}")
         if mode is not None and not self.mode_combo.hasFocus():
             self.mode_combo.setCurrentIndex(DEVICE_MODE_TO_UI_INDEX.get(mode, 0))
+        if pulse_frequency is not None and pulse_frequency > 0:
+            period = 1.0 / pulse_frequency
+            if not self.pulse_period_input.hasFocus():
+                self.pulse_period_input.setText(f"{period:.3f}")
+            if pulse_duty_cycle is not None and not self.pulse_length_input.hasFocus():
+                self.pulse_length_input.setText(f"{period * (pulse_duty_cycle / 100.0):.3f}")
 
     def load_advanced_from_dict(self, params: dict):
         """Populate the advanced fields from a full parameter read.
@@ -212,6 +244,21 @@ class ControlPanel(QWidget):
         amplitude = float(self.amp_input.text())
         mode = UI_INDEX_TO_DEVICE_MODE.get(self.mode_combo.currentIndex(), 0)
         return frequency, amplitude, mode
+
+    def get_pulse_timing_values(self):
+        """Convert the period/length fields (seconds) to the device's wire
+        format (pulse_frequency Hz, pulse_duty_cycle %). Returns None rather
+        than raising if either field is empty/invalid or the period isn't
+        positive, so an unset pulse timing never blocks applying the rest
+        of the basic fields."""
+        try:
+            period = float(self.pulse_period_input.text())
+            length = float(self.pulse_length_input.text())
+        except ValueError:
+            return None
+        if period <= 0:
+            return None
+        return 1.0 / period, (length / period) * 100.0
 
     def _single_target(self):
         ids = self.main_window.selected_device_ids
@@ -256,16 +303,33 @@ class ControlPanel(QWidget):
         for device_id in self.main_window.selected_device_ids:
             self._send(device_id, "set_mode", mode)
 
+    def _apply_pulse_timing(self):
+        if sip.isdeleted(self.main_window):
+            return
+        result = self.get_pulse_timing_values()
+        if result is None:
+            logger.warning("Invalid input for pulse period/length.")
+            return
+        pulse_frequency, pulse_duty_cycle = result
+        for device_id in self.main_window.selected_device_ids:
+            self._send(device_id, "set_pulse_frequency", pulse_frequency)
+            self._send(device_id, "set_pulse_duty_cycle", pulse_duty_cycle)
+
     def _on_set_clicked(self):
         try:
             frequency, amplitude, mode = self.get_basic_values()
         except ValueError:
             logger.warning("Invalid input for frequency or amplitude.")
             return
+        pulse_timing = self.get_pulse_timing_values()
         for device_id in self.main_window.selected_device_ids:
             self._send(device_id, "set_frequency", frequency)
             self._send(device_id, "set_amplitude", amplitude)
             self._send(device_id, "set_mode", mode)
+            if pulse_timing is not None:
+                pulse_frequency, pulse_duty_cycle = pulse_timing
+                self._send(device_id, "set_pulse_frequency", pulse_frequency)
+                self._send(device_id, "set_pulse_duty_cycle", pulse_duty_cycle)
 
     # --- Advanced parameters: single device only ---
 

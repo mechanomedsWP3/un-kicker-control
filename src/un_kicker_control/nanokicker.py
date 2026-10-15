@@ -25,6 +25,8 @@ class NanoKicker:
         self.r_g_trim = None
         self.r_f_trim = None
         self.wiper = None
+        self.pulse_frequency = None
+        self.pulse_duty_cycle = None
 
     def _send_command(
         self, action: int, value: int = 0, read_response: bool = False
@@ -63,6 +65,16 @@ class NanoKicker:
         """Sets wiper position"""
         self.wiper = wiper
         self._send_command(4, wiper)
+
+    def set_pulse_frequency(self, pulse_frequency: float):
+        """Sets the on/off toggle rate (Hz) used by MODE_PULSED."""
+        self.pulse_frequency = pulse_frequency
+        self._send_command(5, self._float_to_int(pulse_frequency))
+
+    def set_pulse_duty_cycle(self, pulse_duty_cycle: float):
+        """Sets the fraction (0-100%) of each pulse period the DDS is on, for MODE_PULSED."""
+        self.pulse_duty_cycle = pulse_duty_cycle
+        self._send_command(6, self._float_to_int(pulse_duty_cycle))
 
     def set_startup_enabled(self, enabled: bool):
         """Configures whether the device is enabled on startup."""
@@ -120,6 +132,18 @@ class NanoKicker:
             self.wiper = response
         return self.wiper
 
+    def get_pulse_frequency(self):
+        response = self._send_command(25, read_response=True)
+        if response is not None:
+            self.pulse_frequency = self._int_to_float(response)
+        return self.pulse_frequency
+
+    def get_pulse_duty_cycle(self):
+        response = self._send_command(26, read_response=True)
+        if response is not None:
+            self.pulse_duty_cycle = self._int_to_float(response)
+        return self.pulse_duty_cycle
+
     def get_startup_enabled(self):
         self.startup_enabled = self._send_command(31, read_response=True)
         return self.startup_enabled
@@ -167,6 +191,8 @@ class NanoKicker:
         self.get_r_g_trim()
         self.get_r_f_trim()
         self.get_wiper()
+        self.get_pulse_frequency()
+        self.get_pulse_duty_cycle()
         logger.debug("--- Finished reading ---")
 
     def __repr__(self):

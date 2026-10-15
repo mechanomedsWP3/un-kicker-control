@@ -79,6 +79,8 @@ class Worker(QObject):
             "r_g_trim": kicker.r_g_trim,
             "r_f_trim": kicker.r_f_trim,
             "wiper": kicker.wiper,
+            "pulse_frequency": kicker.pulse_frequency,
+            "pulse_duty_cycle": kicker.pulse_duty_cycle,
         }
 
     @pyqtSlot()
@@ -470,13 +472,18 @@ class MainWindow(QMainWindow):
             self.control_panel.load_basic_from(
                 last.get("mode"), last.get("frequency"), last.get("amplitude")
             )
-            if len(self.selected_device_ids) == 1 and self.control_panel.advanced_checkbox.isChecked():
+            if len(self.selected_device_ids) == 1:
+                # Pulse period/length live in the basic section but only
+                # come from a full read (the lightweight poll doesn't
+                # include them), so a single selection always fetches one --
+                # not just when Advanced happens to be open.
                 self.trigger_get_parameters.emit(first_id)
 
     def on_parameters_ready(self, device_id, params):
         if self.selected_device_ids == [device_id]:
             self.control_panel.load_basic_from(
-                params.get("mode"), params.get("frequency"), params.get("amplitude")
+                params.get("mode"), params.get("frequency"), params.get("amplitude"),
+                params.get("pulse_frequency"), params.get("pulse_duty_cycle"),
             )
             self.control_panel.load_advanced_from_dict(params)
 
@@ -488,10 +495,15 @@ class MainWindow(QMainWindow):
         except ValueError:
             logger.warning("Invalid input for frequency or amplitude.")
             return
+        pulse_timing = self.control_panel.get_pulse_timing_values()
         for device_id in self.responsive_device_ids:
             self.trigger_call_setter.emit(device_id, "set_frequency", frequency)
             self.trigger_call_setter.emit(device_id, "set_amplitude", amplitude)
             self.trigger_call_setter.emit(device_id, "set_mode", mode)
+            if pulse_timing is not None:
+                pulse_frequency, pulse_duty_cycle = pulse_timing
+                self.trigger_call_setter.emit(device_id, "set_pulse_frequency", pulse_frequency)
+                self.trigger_call_setter.emit(device_id, "set_pulse_duty_cycle", pulse_duty_cycle)
 
     def stop_all(self):
         for device_id in self.responsive_device_ids:
