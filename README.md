@@ -41,7 +41,7 @@ If the GUI fails to start with a Qt "xcb" platform plugin error, install the mis
 Install Python from [python.org](https://www.python.org/downloads/) (tick "Add python.exe to PATH"), then in PowerShell:
 
 ```powershell
-git clone <repository-url>
+git clone https://github.com/mechanomedsWP3/un-kicker-control
 cd un-kicker-control
 
 python -m venv .unk_venv
